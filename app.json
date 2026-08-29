@@ -1,0 +1,51 @@
+{
+  "expo": {
+    "name": "Tari9",
+    "slug": "tari9-rn",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "backgroundColor": "#0E6046"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.tari9.app"
+    },
+    "android": {
+      "package": "com.tari9.app",
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION"
+      ]
+    },
+    "plugins": [
+      "expo-dev-client",
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Tari9 uses your location to find nearby service providers."
+        }
+      ],
+      "@maplibre/maplibre-react-native",
+      [
+        "expo-notifications",
+        {
+          "color": "#0E6046"
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "06b62349-4e56-4f42-bf9f-2b04de353abb"
+      }
+    },
+    "owner": "meriemmalak"
+  }
+}
