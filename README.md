@@ -1,135 +1,97 @@
-# Tari9 — Roadside & Vehicle Services Platform (React Native)
+# Tari9
 
-A cross-platform rebuild of an original native-Android app (2022, Java) —
-a two-sided marketplace connecting drivers with nearby roadside-assistance
-and vehicle-service providers (mechanics, tow trucks, taxis, ambulances,
-garages, fuel delivery).
+A roadside/vehicle-assistance app — request a mechanic, tow, taxi, ambulance, garage, or fuel delivery, get matched with a nearby provider in real time, and track the request through to completion.
 
-This isn't a straight port. It's a deliberate refactor: the original had
-six near-identical Android Activities (`list_mechanics`, `list_garage`,
-`list_taxis`, `list_tows`, `list_ambulance`, `list_stations`), each
-hardcoding one Firestore collection name and one pricing formula. This
-version collapses all six into **one config-driven matching engine**
-(`src/config/serviceTypes.ts` + `src/screens/ProviderListScreen.tsx`) —
-adding a 7th service type is one config entry, not one new screen.
+Co-founded startup, ministry-labeled "Innovative Startup" in Algeria, winner of **Best Tourism Startup at SITEV 2023** (Wilaya of Tarf).
 
-**Status: client and worker apps both implemented, in one codebase.**
-The role picked at signup determines which stack the navigator shows.
+This repo is the React Native + Firebase rewrite of the original native Android (Java) app.
 
-## What it does
+## Stack
 
-- Email/password auth, with a role chosen at signup: **client** or **worker**
-- **Client side:** pick a service type → drop a pin on a map → see nearby
-  available providers of that type, live-sorted by distance → send a
-  request → live status screen → history
-- **Worker side:** onboarding sets up your provider listing (service type,
-  business name, phone, base location) → dashboard with an online/offline
-  toggle, live incoming requests, accept/decline, an active-job card with
-  "Call Client" and "Mark Completed" → job history
-- Real-time Firestore listeners throughout: provider list, request status,
-  and incoming requests all update live, no polling/refresh needed
-- Dynamic, distance-based pricing per service type (tiered base fee +
-  per-meter rate)
-- Full request lifecycle: pending → accepted/declined → completed/cancelled
+- **React Native (Expo)** + **TypeScript**
+- **Firebase** — Auth + Firestore (Spark/free plan)
+- **MapLibre / OpenStreetMap** for maps and location picking
+- **Zustand** for state
+- **EAS Build** for standalone Android builds
 
-## Stack, and why
+## Features
 
-| Piece | Choice | Why |
-|---|---|---|
-| Framework | Expo (TypeScript) | No native project files to hand-edit; fast iteration |
-| Auth + DB | Firebase Auth + Firestore (Spark/free plan) | No billing account required, doesn't pause on inactivity, free real-time listeners |
-| Maps | MapLibre + raw OpenStreetMap tiles | No API key, no billing account — the original project's Google Maps SDK billing requirement is what blocked it from ever being published |
-| Geocoding | Nominatim (OSM) | Free, no key, consistent with the rest of the free/OSM map stack |
-| State | Zustand | Small, no-boilerplate global state for the in-progress request flow |
-| Navigation | React Navigation (native stack) | Standard, auth-gated stack switch |
+- Client flow: pick a service → pick location on a map → see nearby providers ranked by distance → send a request → track live status (pending / accepted / declined / completed / cancelled) → request history
+- Worker flow: provider onboarding, dashboard to accept/decline incoming requests, availability toggle, work history
+- Distance-based pricing per service (base fee + per-meter rate, near/far threshold), with mechanic/garage shown as an estimate (final price agreed with the provider) and tow/taxi/ambulance/fuel shown as a firm number
+- Saved vehicles (up to 3) that auto-fill mechanic/tow/garage requests
+- National ID collected at signup, AES-encrypted before it ever reaches Firestore — providers only ever see a "✓ Verified" badge, never the number
+- Live offline detection — a clear banner instead of a stuck spinner when connectivity drops
+- Push notifications for request updates
+
+## Architecture notes
+
+**Config-driven service system.** Every service (mechanic, tow, taxi, ambulance, garage, fuel) is one entry in [`src/config/serviceTypes.ts`](src/config/serviceTypes.ts) — its label, icon, pricing rule, and the extra form fields it needs (vehicle type, issue description, passenger count, etc). One screen (`RequestDetailsScreen`) and one provider-facing card render whatever a service declares. Adding a 7th service is a config entry, not a new screen.
+
+**National ID handling.** The ID is AES-encrypted client-side (`src/utils/idCrypto.ts`) before `setDoc` ever runs — plaintext never touches Firestore. The key lives in an env var, never in source. This is a client-only app (no backend), so it's worth being explicit about what this protects against: a leaked or misconfigured database, or someone browsing Firestore directly. It does not protect against someone reverse-engineering the built app itself, since Expo's `EXPO_PUBLIC_*` env vars are bundled into the binary — a normal limitation for client-only apps.
+
+**Offline handling.** Firestore's `onSnapshot` listeners don't error on plain connectivity loss — with nothing cached yet, they just sit pending. `useNetworkStatus` (backed by `@react-native-community/netinfo`) gives every screen a real, independent signal instead, so the app tells you what's happening rather than hanging silently. It can't fully work offline — matching a live nearby provider inherently needs a connection, same as any app like this — but it never leaves you guessing why.
+
+## Getting started
+
+```bash
+npm install
+npx expo install @react-native-community/netinfo crypto-js react-native-get-random-values
+```
+
+Create a `.env` in the project root (see `.env.example` if present, or the vars referenced in `src/config/firebase.ts` and `src/utils/idCrypto.ts`):
+
+```
+EXPO_PUBLIC_FIREBASE_API_KEY=
+EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN=
+EXPO_PUBLIC_FIREBASE_PROJECT_ID=
+EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET=
+EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=
+EXPO_PUBLIC_FIREBASE_APP_ID=
+EXPO_PUBLIC_ID_ENCRYPTION_KEY=
+```
+
+Run locally:
+
+```bash
+npx expo start
+```
+
+## Building a standalone APK
+
+This project uses [EAS Build](https://docs.expo.dev/build/introduction/). The `development` profile in `eas.json` produces a dev-client build that needs a Metro server running — that's for local testing only. To produce a real, standalone, install-and-open APK (what you'd send someone to test):
+
+```bash
+npm install -g eas-cli
+eas login
+
+# one-time: push your .env values to EAS (they don't get read from your local .env automatically)
+eas env:set --name EXPO_PUBLIC_FIREBASE_API_KEY --value "..." --environment preview --visibility plaintext
+# ...repeat for the other 5 Firebase vars, and:
+eas env:set --name EXPO_PUBLIC_ID_ENCRYPTION_KEY --value "..." --environment preview --visibility sensitive
+
+eas build --platform android --profile preview
+```
+
+That gives you a download link for a standalone APK — no dev server, no laptop required to open it.
 
 ## Project structure
 
 ```
 src/
-  config/         Firebase init, and the service-type config that
-                   replaces six duplicated Android screens
-  types/          Shared TypeScript types
-  services/       Firebase/Firestore/geo calls - no UI here
-                   (auth, providers, providerProfile, requests, geo)
-  store/          Zustand stores (auth session + role, in-progress
-                   request flow)
-  navigation/     Role-gated stack navigator: auth -> worker onboarding
-                   (if needed) -> worker OR client stack
-  components/     Reusable cards, map wrapper, loading overlay
-  screens/        Client screens (one per step of the request flow)
-    auth/         Sign in / sign up (role picked here)
-    worker/       Onboarding, dashboard, history, profile
-scripts/
-  seedProviders.ts  Seeds demo provider data for testing the client flow
-firestore.rules     Security rules - each role can only touch its own data
+  components/     shared UI (SelectDropdown, OfflineBanner, ProviderCard, ...)
+  config/         serviceTypes.ts - the single source of truth for every service
+  hooks/          useNetworkStatus
+  navigation/     RootNavigator, route types
+  screens/        client screens + screens/worker/ for the provider flow
+  services/       Firebase reads/writes (auth, requests, providers, push, geo)
+  store/          Zustand stores (auth, in-progress request)
+  types/          shared TypeScript types
+  utils/          pricing, idCrypto
 ```
 
-## How the two roles share one data model
+## Known limitations
 
-- `users/{uid}` - profile doc for every account, `role: 'client' | 'worker'`
-- `providers/{uid}` - a worker's own listing, **doc ID == their uid**, so
-  there's no query needed to find "my profile," just `doc(providers, uid)`
-- `requests/{id}` - created by a client against one specific `providerId`
-  they picked from the list; both sides read/write the same doc as its
-  `state` moves through the lifecycle, and Firestore listeners on each
-  side pick up every change instantly
-
-## Push notifications, without a billing account
-
-Real push notifications normally need a server watching for database
-changes (on Firebase, that's Cloud Functions - which require the Blaze
-plan and a billing card). This app avoids that entirely: whichever client
-causes a state change also sends the push itself, directly to Expo's
-public push endpoint, right after writing to Firestore. No server, no
-Cloud Functions, no Blaze.
-
-- Client sends a request → worker gets pushed
-- Worker accepts → client gets pushed
-
-This needs a free Expo account and an EAS project ID (`eas init`), but
-never a billing card. Without it, the app still works fully via the live
-Firestore listeners - you just won't get a notification while the app is
-backgrounded/closed.
-
-## Running it
-
-1. Create a free Firebase project (Spark plan - no card needed), enable
-   Email/Password auth and Firestore.
-2. Copy `.env.example` to `.env` and fill in your Firebase config values.
-3. (Recommended) Publish `firestore.rules` to your project - Firestore
-   Console → Rules tab → paste the file's contents → Publish. Test mode
-   (open read/write) is fine while building, but switch to these rules
-   before this goes anywhere near real users.
-4. `npm install`
-5. Link a free Expo account so push notifications can get a project ID
-   (no billing card, ever):
-   ```
-   npx eas login
-   npx eas init
-   ```
-6. This app uses MapLibre, a native module - it needs a **dev client**,
-   not plain Expo Go:
-   ```
-   npx expo install expo-dev-client
-   npx expo run:android
-   ```
-7. Seed some mock providers so the client-side flow has data to query
-   against without needing a second device signed in as a worker:
-   ```
-   npm run seed
-   ```
-8. To test the full loop end-to-end: sign up one account as a **worker**
-   (on a second device, or sign out/in on the same one) to create a real
-   provider listing, then sign up a second account as a **client** and
-   send that provider a request - watch it appear live on the worker's
-   dashboard, and a push notification arrive if both devices are real
-   physical devices (push tokens don't work on emulators).
-
-## Next phase
-
-- Push notifications via FCM (free, no billing, already in the same
-  Firebase project) when a request is accepted or a new one comes in
-- Ratings after a completed request
-- Provider-side location updates while en route (currently fixed at
-  their base location from onboarding)
+- Requires connectivity to match with a live nearby provider (inherent to the real-time-matching model, not a bug)
+- Single-device push notifications only, no multi-device sync of push tokens
+- No in-app chat between client and provider yet (planned)

@@ -45,7 +45,10 @@ export default function WorkerHistoryScreen() {
       renderItem={({ item }) => (
         <View style={styles.row}>
           <View style={styles.info}>
-            <Text style={styles.name}>{item.clientName || 'Client'}</Text>
+            <View style={styles.nameRow}>
+              <Text style={styles.name}>{item.clientName || 'Client'}</Text>
+              {item.clientIdVerified && <Text style={styles.verified}>✓ Verified</Text>}
+            </View>
             <Text style={styles.date}>{new Date(item.createdAt).toLocaleDateString()}</Text>
           </View>
           <View style={styles.right}>
@@ -72,7 +75,9 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
   },
   info: { flex: 1 },
+  nameRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   name: { fontSize: 15, fontWeight: '600', color: colors.text },
+  verified: { fontSize: 10, fontWeight: '700', color: colors.primary },
   date: { fontSize: 12, color: colors.textMuted, marginTop: 2 },
   right: { alignItems: 'flex-end' },
   price: { fontSize: 14, fontWeight: '700', color: colors.text },

@@ -4,6 +4,7 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '@/navigation/types';
 import { useRequestStore } from '@/store/useRequestStore';
 import { getCurrentLocation, reverseGeocode, requestLocationPermission } from '@/services/geo';
+import { getServiceType } from '@/config/serviceTypes';
 import { GeoPoint } from '@/types';
 import OsmMap from '@/components/Map/OsmMap';
 import LoadingOverlay from '@/components/LoadingOverlay';
@@ -15,6 +16,7 @@ const FALLBACK_CENTER: GeoPoint = { lat: 35.4, lng: 8.12 }; // Tébessa, DZ
 
 export default function MapPickerScreen({ navigation }: Props) {
   const setLocation = useRequestStore((s) => s.setLocation);
+  const serviceType = useRequestStore((s) => s.serviceType);
   const [selected, setSelected] = useState<GeoPoint | null>(null);
   const [center, setCenter] = useState<GeoPoint>(FALLBACK_CENTER);
   const [loading, setLoading] = useState(true);
@@ -42,7 +44,12 @@ export default function MapPickerScreen({ navigation }: Props) {
     const address = await reverseGeocode(selected);
     setLocation(selected, address);
     setConfirming(false);
-    navigation.navigate('ProviderList');
+    const service = serviceType ? getServiceType(serviceType) : null;
+    if (service?.extraFields?.length) {
+      navigation.navigate('RequestDetails');
+    } else {
+      navigation.navigate('ProviderList');
+    }
   }
 
   return (

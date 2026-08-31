@@ -6,10 +6,11 @@ import { colors } from '@/constants/colors';
 interface Props {
   provider: Provider;
   price: number;
+  priceLabel?: string;
   onPress: () => void;
 }
 
-export default function ProviderCard({ provider, price, onPress }: Props) {
+export default function ProviderCard({ provider, price, priceLabel, onPress }: Props) {
   const km = ((provider.distanceMeters ?? 0) / 1000).toFixed(1);
   return (
     <Pressable style={styles.card} onPress={onPress}>
@@ -20,7 +21,7 @@ export default function ProviderCard({ provider, price, onPress }: Props) {
         <Text style={styles.name}>{provider.name}</Text>
         <Text style={styles.meta}>{km} km away{provider.rating ? ` · ★ ${provider.rating.toFixed(1)}` : ''}</Text>
       </View>
-      <Text style={styles.price}>{price} DA</Text>
+      <Text style={styles.price}>{priceLabel ?? `${price} DA`}</Text>
     </Pressable>
   );
 }

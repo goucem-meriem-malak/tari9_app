@@ -24,16 +24,25 @@ export default function SignUpScreen({ navigation }: Props) {
   const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [nationalId, setNationalId] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const canSubmit = firstName && lastName && email && password.length >= 6;
+  const canSubmit =
+    firstName && lastName && email && password.length >= 6 && nationalId.trim().length > 0;
 
   async function handleSignUp() {
     setError(null);
     setLoading(true);
     try {
-      await signUp(email.trim(), password, firstName.trim(), lastName.trim(), role);
+      await signUp(
+        email.trim(),
+        password,
+        firstName.trim(),
+        lastName.trim(),
+        role,
+        nationalId.trim()
+      );
       // RootNavigator picks the right stack once appUser.role loads
     } catch (e: any) {
       setError(
@@ -92,6 +101,17 @@ export default function SignUpScreen({ navigation }: Props) {
           value={password}
           onChangeText={setPassword}
         />
+        <TextInput
+          style={styles.input}
+          placeholder="National ID number"
+          keyboardType="number-pad"
+          value={nationalId}
+          onChangeText={setNationalId}
+        />
+        <Text style={styles.idHint}>
+          Used to verify your identity in case of a scam report. It's encrypted before it ever
+          leaves your device.
+        </Text>
 
         {error && <Text style={styles.error}>{error}</Text>}
 
@@ -149,4 +169,5 @@ const styles = StyleSheet.create({
   buttonText: { color: '#fff', fontWeight: '600', fontSize: 15 },
   link: { textAlign: 'center', color: colors.primary, marginTop: 18, fontSize: 13 },
   error: { color: colors.danger, fontSize: 13, marginBottom: 8 },
+  idHint: { fontSize: 11, color: colors.textMuted, marginTop: -6, marginBottom: 12 },
 });

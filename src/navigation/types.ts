@@ -4,6 +4,7 @@ export type RootStackParamList = {
   // Client
   ServiceSelect: undefined;
   MapPicker: undefined;
+  RequestDetails: undefined;
   ProviderList: undefined;
   RequestStatus: { requestId: string };
   RequestHistory: undefined;

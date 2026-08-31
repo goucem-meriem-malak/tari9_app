@@ -7,11 +7,13 @@ import { getProviderProfile } from '@/services/providerProfile';
 import { registerForPushNotifications } from '@/services/push';
 import { useAuthStore } from '@/store/useAuthStore';
 import { colors } from '@/constants/colors';
+import OfflineBanner from '@/components/OfflineBanner';
 
 import SignInScreen from '@/screens/auth/SignInScreen';
 import SignUpScreen from '@/screens/auth/SignUpScreen';
 import ServiceSelectScreen from '@/screens/ServiceSelectScreen';
 import MapPickerScreen from '@/screens/MapPickerScreen';
+import RequestDetailsScreen from '@/screens/RequestDetailsScreen';
 import ProviderListScreen from '@/screens/ProviderListScreen';
 import RequestStatusScreen from '@/screens/RequestStatusScreen';
 import RequestHistoryScreen from '@/screens/RequestHistoryScreen';
@@ -72,6 +74,7 @@ export default function RootNavigator() {
 
   return (
     <NavigationContainer>
+      <OfflineBanner />
       <Stack.Navigator screenOptions={{ headerTintColor: colors.primary }}>
         {!firebaseUid ? (
           <>
@@ -94,6 +97,7 @@ export default function RootNavigator() {
           <>
             <Stack.Screen name="ServiceSelect" component={ServiceSelectScreen} options={{ title: 'Tari9' }} />
             <Stack.Screen name="MapPicker" component={MapPickerScreen} options={{ title: 'Your Location' }} />
+            <Stack.Screen name="RequestDetails" component={RequestDetailsScreen} options={{ title: 'Details' }} />
             <Stack.Screen name="ProviderList" component={ProviderListScreen} options={{ title: 'Nearby Providers' }} />
             <Stack.Screen name="RequestStatus" component={RequestStatusScreen} options={{ title: 'Request Status' }} />
             <Stack.Screen name="RequestHistory" component={RequestHistoryScreen} options={{ title: 'History' }} />

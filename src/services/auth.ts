@@ -8,6 +8,7 @@ import {
 import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { auth, db } from '@/config/firebase';
 import { AppUser, UserRole } from '@/types';
+import { encryptNationalId } from '@/utils/idCrypto';
 
 export function subscribeToAuth(cb: (user: User | null) => void) {
   return onAuthStateChanged(auth, cb);
@@ -18,7 +19,8 @@ export async function signUp(
   password: string,
   firstName: string,
   lastName: string,
-  role: UserRole
+  role: UserRole,
+  nationalId: string
 ): Promise<void> {
   const cred = await createUserWithEmailAndPassword(auth, email, password);
   const appUser: AppUser = {
@@ -27,6 +29,7 @@ export async function signUp(
     firstName,
     lastName,
     role,
+    nationalId: encryptNationalId(nationalId), // ciphertext only, from here on
     createdAt: Date.now(),
   };
   await setDoc(doc(db, 'users', cred.user.uid), appUser);

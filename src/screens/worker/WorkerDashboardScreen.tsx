@@ -18,6 +18,40 @@ import { getServiceType } from '@/config/serviceTypes';
 import { ServiceRequest } from '@/types';
 import { colors } from '@/constants/colors';
 
+// Shown next to a client's name wherever the provider sees a request.
+// Deliberately just a checkmark + word - the provider never sees the ID
+// itself, only that one is on file (see ServiceRequest.clientIdVerified).
+function VerifiedBadge() {
+  return (
+    <View style={styles.verifiedBadge}>
+      <Text style={styles.verifiedBadgeText}>✓ Verified</Text>
+    </View>
+  );
+}
+
+function ExtraDetails({ request }: { request: ServiceRequest }) {
+  if (!request.extra) return null;
+  const service = getServiceType(request.type);
+  const fields = service.extraFields ?? [];
+  return (
+    <View style={styles.extraWrap}>
+      {fields.map((field) => {
+        const raw = request.extra?.[field.key];
+        if (raw === undefined || raw === '') return null;
+        const display =
+          field.type === 'select' ? field.options?.find((o) => o.value === raw)?.label ?? raw : raw;
+        return (
+          <Text key={field.key} style={styles.extraLine}>
+            <Text style={styles.extraLabel}>{field.label}: </Text>
+            {display}
+            {field.unit ? ` ${field.unit}` : ''}
+          </Text>
+        );
+      })}
+    </View>
+  );
+}
+
 type Props = NativeStackScreenProps<RootStackParamList, 'WorkerDashboard'>;
 
 export default function WorkerDashboardScreen({ navigation }: Props) {
@@ -94,10 +128,16 @@ export default function WorkerDashboardScreen({ navigation }: Props) {
             {activeJob && (
               <View style={styles.activeCard}>
                 <Text style={styles.sectionTitle}>Active Job</Text>
-                <Text style={styles.clientName}>{activeJob.clientName || 'Client'}</Text>
+                <View style={styles.nameRow}>
+                  <Text style={styles.clientName}>{activeJob.clientName || 'Client'}</Text>
+                  {activeJob.clientIdVerified && <VerifiedBadge />}
+                </View>
                 <Text style={styles.meta}>
-                  {(activeJob.distanceMeters / 1000).toFixed(1)} km · {activeJob.address.city ?? ''} · {activeJob.price} DA
+                  {(activeJob.distanceMeters / 1000).toFixed(1)} km · {activeJob.address.city ?? ''} ·{' '}
+                  {getServiceType(activeJob.type).pricingDisplay === 'estimateOnly' ? '~' : ''}
+                  {activeJob.price} DA
                 </Text>
+                <ExtraDetails request={activeJob} />
                 <View style={styles.activeActions}>
                   {activeJob.clientPhone ? (
                     <Pressable
@@ -127,10 +167,16 @@ export default function WorkerDashboardScreen({ navigation }: Props) {
         }
         renderItem={({ item }) => (
           <View style={styles.requestCard}>
-            <Text style={styles.clientName}>{item.clientName || 'Client'}</Text>
+            <View style={styles.nameRow}>
+              <Text style={styles.clientName}>{item.clientName || 'Client'}</Text>
+              {item.clientIdVerified && <VerifiedBadge />}
+            </View>
             <Text style={styles.meta}>
-              {(item.distanceMeters / 1000).toFixed(1)} km · {item.address.city ?? ''} · {item.price} DA
+              {(item.distanceMeters / 1000).toFixed(1)} km · {item.address.city ?? ''} ·{' '}
+              {getServiceType(item.type).pricingDisplay === 'estimateOnly' ? '~' : ''}
+              {item.price} DA
             </Text>
+            <ExtraDetails request={item} />
             <View style={styles.requestActions}>
               <Pressable style={styles.declineButton} onPress={() => handleDecline(item)}>
                 <Text style={styles.declineText}>Decline</Text>
@@ -180,7 +226,17 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.primary,
   },
+  nameRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   clientName: { fontSize: 16, fontWeight: '700', color: colors.text },
+  verifiedBadge: {
+    backgroundColor: colors.primaryLight,
+    borderWidth: 1,
+    borderColor: colors.primary,
+    borderRadius: 8,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+  },
+  verifiedBadgeText: { fontSize: 10, fontWeight: '700', color: colors.primary },
   meta: { fontSize: 13, color: colors.textMuted, marginTop: 4 },
   activeActions: { flexDirection: 'row', gap: 10, marginTop: 14 },
   callButton: { flex: 1, backgroundColor: colors.primary, borderRadius: 8, padding: 12, alignItems: 'center' },
@@ -201,6 +257,9 @@ const styles = StyleSheet.create({
   acceptButton: { flex: 1, backgroundColor: colors.primary, borderRadius: 8, padding: 12, alignItems: 'center' },
   acceptText: { color: '#fff', fontWeight: '600', fontSize: 13 },
   emptyText: { color: colors.textMuted, textAlign: 'center', marginTop: 20, fontSize: 13 },
+  extraWrap: { marginTop: 10, gap: 2 },
+  extraLine: { fontSize: 12, color: colors.text },
+  extraLabel: { color: colors.textMuted },
   footerNav: {
     flexDirection: 'row',
     justifyContent: 'space-around',
