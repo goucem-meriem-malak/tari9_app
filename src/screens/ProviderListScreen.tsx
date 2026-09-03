@@ -4,10 +4,11 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '@/navigation/types';
 import { useRequestStore } from '@/store/useRequestStore';
 import { useAuthStore } from '@/store/useAuthStore';
+import { useT } from '@/store/useLocaleStore';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { subscribeToNearbyProviders } from '@/services/providers';
 import { createRequest } from '@/services/requests';
-import { sendPushNotification } from '@/services/push';
+import { sendPushNotification, getProviderPushToken } from '@/services/push';
 import { getServiceType } from '@/config/serviceTypes';
 import { calculateFullPrice } from '@/utils/pricing';
 import { Provider } from '@/types';
@@ -21,6 +22,7 @@ type Props = NativeStackScreenProps<RootStackParamList, 'ProviderList'>;
 // list_tows / list_ambulance / list_stations. It just reads whichever
 // service type the user picked from the shared request-flow store.
 export default function ProviderListScreen({ navigation }: Props) {
+  const t = useT();
   const { serviceType, location, address, extra, setActiveRequestId } = useRequestStore();
   const firebaseUid = useAuthStore((s) => s.firebaseUid);
   const appUser = useAuthStore((s) => s.appUser);
@@ -30,6 +32,7 @@ export default function ProviderListScreen({ navigation }: Props) {
   const [sending, setSending] = useState(false);
 
   const service = serviceType ? getServiceType(serviceType) : null;
+  const serviceLabel = serviceType ? t(`services.${serviceType}.label`) : '';
   const isEstimateOnly = service?.pricingDisplay === 'estimateOnly';
 
   useEffect(() => {
@@ -57,7 +60,7 @@ export default function ProviderListScreen({ navigation }: Props) {
   async function handleSelectProvider(provider: Provider) {
     if (!serviceType || !location || !address || !firebaseUid || !service) return;
     if (isOffline) {
-      Alert.alert("You're offline", 'Reconnect to send this request.');
+      Alert.alert(t('common.youAreOfflineTitle'), t('providerList.reconnectToSend'));
       return;
     }
     setSending(true);
@@ -88,18 +91,28 @@ export default function ProviderListScreen({ navigation }: Props) {
         updatedAt: Date.now(),
       });
 
-      // Best-effort - the request itself already went through above regardless
+      // Best-effort - the request itself already went through above regardless.
+      // provider.pushToken no longer exists on the browse-list object (see
+      // firestore.rules) - fetch it now that createRequest() above has
+      // written the activeClients mirror doc that grants this read.
+      // Translated using the client's current locale, since we don't have a
+      // per-provider language preference stored yet.
+      const providerToken = await getProviderPushToken(provider.id);
       sendPushNotification(
-        provider.pushToken,
-        'New request',
-        `${service.icon} ${service.label} request nearby${isEstimateOnly ? '' : ` - ${total} DA`}`,
+        providerToken,
+        t('providerList.newRequestPushTitle'),
+        t('providerList.newRequestPushBody', {
+          icon: service.icon,
+          service: serviceLabel,
+          price: isEstimateOnly ? '' : ` - ${total} ${t('common.currency')}`,
+        }),
         { requestId }
       );
 
       setActiveRequestId(requestId);
       navigation.navigate('RequestStatus', { requestId });
     } catch (e) {
-      Alert.alert('Could not send request', 'Please check your connection and try again.');
+      Alert.alert(t('providerList.couldNotSendTitle'), t('common.checkConnectionRetry'));
     } finally {
       setSending(false);
     }
@@ -108,33 +121,31 @@ export default function ProviderListScreen({ navigation }: Props) {
   return (
     <View style={styles.container}>
       {(loading || sending) && (
-        <LoadingOverlay label={sending ? 'Sending your request...' : 'Looking for providers...'} />
+        <LoadingOverlay label={sending ? t('providerList.sending') : t('providerList.looking')} />
       )}
       <View style={styles.header}>
         <Text style={styles.title}>
-          {service?.icon} {service?.label} near you
+          {service?.icon} {serviceLabel} {t('providerList.nearYou')}
         </Text>
-        <Text style={styles.subtitle}>{address?.city ?? 'Your area'}</Text>
+        <Text style={styles.subtitle}>{address?.city ?? t('providerList.yourArea')}</Text>
         {isEstimateOnly && (
           <Text style={styles.estimateNote}>
-            Prices below are a rough call-out estimate - the {service?.label.toLowerCase()} will
-            confirm the final cost with you once they see the issue.
+            {t('providerList.estimateNote', { service: serviceLabel.toLowerCase() })}
           </Text>
         )}
       </View>
 
       {!loading && isOffline && (
         <View style={styles.empty}>
-          <Text style={styles.emptyText}>
-            You're offline - can't search for providers right now. Reconnect and this screen will
-            update automatically.
-          </Text>
+          <Text style={styles.emptyText}>{t('providerList.offlineMessage')}</Text>
         </View>
       )}
 
       {!loading && !isOffline && providers.length === 0 && (
         <View style={styles.empty}>
-          <Text style={styles.emptyText}>No {service?.label.toLowerCase()} available nearby right now.</Text>
+          <Text style={styles.emptyText}>
+            {t('providerList.noneAvailable', { service: serviceLabel.toLowerCase() })}
+          </Text>
         </View>
       )}
 
@@ -144,11 +155,12 @@ export default function ProviderListScreen({ navigation }: Props) {
         contentContainerStyle={styles.list}
         renderItem={({ item }) => {
           const { total } = calculateFullPrice(service!, item.distanceMeters ?? 0, extra);
+          const currency = t('common.currency');
           return (
             <ProviderCard
               provider={item}
               price={total}
-              priceLabel={isEstimateOnly ? `~${total} DA est.` : `${total} DA`}
+              priceLabel={isEstimateOnly ? `~${total} ${currency} ${t('providerList.estimatedSuffix')}` : `${total} ${currency}`}
               onPress={() => handleSelectProvider(item)}
             />
           );

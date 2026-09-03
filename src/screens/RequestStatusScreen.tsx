@@ -5,21 +5,15 @@ import { RootStackParamList } from '@/navigation/types';
 import { subscribeToRequest, cancelRequest } from '@/services/requests';
 import { ServiceRequest } from '@/types';
 import { useRequestStore } from '@/store/useRequestStore';
+import { useT } from '@/store/useLocaleStore';
 import { getServiceType } from '@/config/serviceTypes';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { colors } from '@/constants/colors';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'RequestStatus'>;
 
-const STATE_LABEL: Record<ServiceRequest['state'], string> = {
-  pending: 'Waiting for a provider to accept...',
-  accepted: 'Provider is on the way!',
-  declined: 'Provider declined this request.',
-  completed: 'Service completed.',
-  cancelled: 'Request cancelled.',
-};
-
 export default function RequestStatusScreen({ route, navigation }: Props) {
+  const t = useT();
   const { requestId } = route.params;
   const [request, setRequest] = useState<ServiceRequest | null>(null);
   const resetFlow = useRequestStore((s) => s.reset);
@@ -27,6 +21,14 @@ export default function RequestStatusScreen({ route, navigation }: Props) {
   const setLocation = useRequestStore((s) => s.setLocation);
   const hasPromptedFollowUp = useRef(false);
   const { isOffline } = useNetworkStatus();
+
+  const STATE_LABEL: Record<ServiceRequest['state'], string> = {
+    pending: t('requestStatus.pending'),
+    accepted: t('requestStatus.accepted'),
+    declined: t('requestStatus.declined'),
+    completed: t('requestStatus.completed'),
+    cancelled: t('requestStatus.cancelled'),
+  };
 
   useEffect(() => {
     const unsub = subscribeToRequest(requestId, setRequest);
@@ -41,20 +43,20 @@ export default function RequestStatusScreen({ route, navigation }: Props) {
 
     if (request.type === 'ambulance') {
       Alert.alert(
-        'Need a ride for the rest of the group?',
-        'If some of your group are unhurt and need to get home, we can send a taxi to the same location.',
+        t('requestStatus.followUpAmbulanceTitle'),
+        t('requestStatus.followUpAmbulanceMessage'),
         [
-          { text: 'Not now', style: 'cancel' },
-          { text: 'Request a Taxi', onPress: () => startFollowUpRequest('taxi') },
+          { text: t('common.notNow'), style: 'cancel' },
+          { text: t('requestStatus.requestTaxi'), onPress: () => startFollowUpRequest('taxi') },
         ]
       );
     } else if (request.type === 'taxi') {
       Alert.alert(
-        'Is anyone hurt?',
-        "If this is from an accident and someone needs medical help, you can also request an ambulance to the same location.",
+        t('requestStatus.followUpTaxiTitle'),
+        t('requestStatus.followUpTaxiMessage'),
         [
-          { text: 'Not now', style: 'cancel' },
-          { text: 'Request an Ambulance', onPress: () => startFollowUpRequest('ambulance') },
+          { text: t('common.notNow'), style: 'cancel' },
+          { text: t('requestStatus.requestAmbulance'), onPress: () => startFollowUpRequest('ambulance') },
         ]
       );
     }
@@ -69,15 +71,23 @@ export default function RequestStatusScreen({ route, navigation }: Props) {
   }
 
   async function handleCancel() {
-    Alert.alert('Cancel request?', 'This will stop the search for a provider.', [
-      { text: 'No', style: 'cancel' },
+    Alert.alert(t('requestStatus.cancelConfirmTitle'), t('requestStatus.cancelConfirmMessage'), [
+      { text: t('common.no'), style: 'cancel' },
       {
-        text: 'Yes, cancel',
+        text: t('requestStatus.yesCancel'),
         style: 'destructive',
         onPress: async () => {
-          await cancelRequest(requestId);
-          resetFlow();
-          navigation.navigate('ServiceSelect');
+          try {
+            await cancelRequest(requestId);
+            resetFlow();
+            navigation.navigate('ServiceSelect');
+          } catch (e: any) {
+            // Most likely: the provider already accepted/declined it a
+            // moment before this tap landed - the live listener above
+            // already shows the real current state, so just surface why
+            // the cancel didn't go through instead of pretending it did.
+            Alert.alert(t('requestStatus.couldNotCancelTitle'), e?.message ?? t('common.checkConnectionRetry'));
+          }
         },
       },
     ]);
@@ -92,7 +102,7 @@ export default function RequestStatusScreen({ route, navigation }: Props) {
     return (
       <View style={styles.container}>
         <Text style={styles.status}>
-          {isOffline ? "You're offline - this will load once you reconnect." : 'Loading request...'}
+          {isOffline ? t('requestStatus.offlineLoading') : t('common.loadingRequest')}
         </Text>
       </View>
     );
@@ -100,6 +110,7 @@ export default function RequestStatusScreen({ route, navigation }: Props) {
 
   const service = getServiceType(request.type);
   const isEstimateOnly = service.pricingDisplay === 'estimateOnly';
+  const currency = t('common.currency');
 
   return (
     <View style={styles.container}>
@@ -110,29 +121,29 @@ export default function RequestStatusScreen({ route, navigation }: Props) {
           <View style={styles.breakdown}>
             {request.priceBreakdown.itemCost > 0 && (
               <View style={styles.breakdownRow}>
-                <Text style={styles.breakdownLabel}>Item cost</Text>
-                <Text style={styles.breakdownValue}>{request.priceBreakdown.itemCost} DA</Text>
+                <Text style={styles.breakdownLabel}>{t('requestStatus.itemCost')}</Text>
+                <Text style={styles.breakdownValue}>{request.priceBreakdown.itemCost} {currency}</Text>
               </View>
             )}
             <View style={styles.breakdownRow}>
               <Text style={styles.breakdownLabel}>
-                {isEstimateOnly ? 'Estimated call-out' : 'Delivery cost'}
+                {isEstimateOnly ? t('requestStatus.estimatedCallOut') : t('requestStatus.deliveryCost')}
               </Text>
-              <Text style={styles.breakdownValue}>{request.priceBreakdown.deliveryCost} DA</Text>
+              <Text style={styles.breakdownValue}>{request.priceBreakdown.deliveryCost} {currency}</Text>
             </View>
             <View style={[styles.breakdownRow, styles.breakdownTotalRow]}>
-              <Text style={styles.breakdownTotalLabel}>Total</Text>
+              <Text style={styles.breakdownTotalLabel}>{t('common.total')}</Text>
               <Text style={styles.price}>
-                {isEstimateOnly ? `~${request.price} DA` : `${request.price} DA`}
+                {isEstimateOnly ? `~${request.price} ${currency}` : `${request.price} ${currency}`}
               </Text>
             </View>
           </View>
         ) : (
-          <Text style={styles.price}>{isEstimateOnly ? `~${request.price} DA` : `${request.price} DA`}</Text>
+          <Text style={styles.price}>{isEstimateOnly ? `~${request.price} ${currency}` : `${request.price} ${currency}`}</Text>
         )}
 
         {isEstimateOnly && (
-          <Text style={styles.estimateNote}>Final price is agreed directly with the provider.</Text>
+          <Text style={styles.estimateNote}>{t('requestStatus.finalPriceNote')}</Text>
         )}
 
         <Text style={styles.meta}>
@@ -141,11 +152,27 @@ export default function RequestStatusScreen({ route, navigation }: Props) {
         {request.providerName && request.state === 'accepted' && (
           <Text style={styles.providerName}>{request.providerName}</Text>
         )}
+        {request.state === 'completed' && request.paymentStatus === 'paid' && (
+          <Text style={styles.paidBadge}>
+            {t('requestStatus.paid', {
+              method: t(`payment.${request.paymentMethod ?? 'cash'}`),
+            })}
+          </Text>
+        )}
       </View>
+
+      {request.state === 'completed' && request.paymentStatus !== 'paid' && (
+        <Pressable
+          style={styles.payButton}
+          onPress={() => navigation.navigate('Payment', { requestId })}
+        >
+          <Text style={styles.payText}>{t('requestStatus.payNowButton')}</Text>
+        </Pressable>
+      )}
 
       {request.state === 'pending' && (
         <Pressable style={styles.cancelButton} onPress={handleCancel}>
-          <Text style={styles.cancelText}>Cancel Request</Text>
+          <Text style={styles.cancelText}>{t('requestStatus.cancelRequestButton')}</Text>
         </Pressable>
       )}
 
@@ -154,7 +181,7 @@ export default function RequestStatusScreen({ route, navigation }: Props) {
           style={styles.callButton}
           onPress={() => Linking.openURL(`tel:${request.providerPhone}`)}
         >
-          <Text style={styles.callText}>Call Provider</Text>
+          <Text style={styles.callText}>{t('requestStatus.callProviderButton')}</Text>
         </Pressable>
       )}
 
@@ -162,7 +189,7 @@ export default function RequestStatusScreen({ route, navigation }: Props) {
         request.state === 'declined' ||
         request.state === 'cancelled') && (
         <Pressable style={styles.doneButton} onPress={handleDone}>
-          <Text style={styles.doneText}>Done</Text>
+          <Text style={styles.doneText}>{t('common.done')}</Text>
         </Pressable>
       )}
     </View>
@@ -191,6 +218,9 @@ const styles = StyleSheet.create({
   estimateNote: { fontSize: 11, color: colors.warning, marginTop: 8, textAlign: 'center' },
   meta: { fontSize: 13, color: colors.textMuted, marginTop: 8 },
   providerName: { fontSize: 14, fontWeight: '600', color: colors.text, marginTop: 10 },
+  paidBadge: { fontSize: 12, fontWeight: '700', color: colors.success, marginTop: 10 },
+  payButton: { marginTop: 24, padding: 15, alignItems: 'center', borderRadius: 10, backgroundColor: colors.accent },
+  payText: { color: colors.navy900, fontWeight: '700' },
   cancelButton: { marginTop: 24, padding: 15, alignItems: 'center', borderRadius: 10, backgroundColor: colors.danger },
   cancelText: { color: '#fff', fontWeight: '600' },
   callButton: { marginTop: 24, padding: 15, alignItems: 'center', borderRadius: 10, backgroundColor: colors.primary },

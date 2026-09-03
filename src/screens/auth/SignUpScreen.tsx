@@ -14,11 +14,14 @@ import { RootStackParamList } from '@/navigation/types';
 import { signUp } from '@/services/auth';
 import { colors } from '@/constants/colors';
 import LoadingOverlay from '@/components/LoadingOverlay';
+import LanguageToggle from '@/components/LanguageToggle';
+import { useT } from '@/store/useLocaleStore';
 import { UserRole } from '@/types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'SignUp'>;
 
 export default function SignUpScreen({ navigation }: Props) {
+  const t = useT();
   const [role, setRole] = useState<UserRole>('client');
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
@@ -45,11 +48,7 @@ export default function SignUpScreen({ navigation }: Props) {
       );
       // RootNavigator picks the right stack once appUser.role loads
     } catch (e: any) {
-      setError(
-        e?.code === 'auth/email-already-in-use'
-          ? 'That email is already registered.'
-          : 'Could not create your account. Please try again.'
-      );
+      setError(e?.code === 'auth/email-already-in-use' ? t('auth.emailInUse') : t('auth.signUpError'));
     } finally {
       setLoading(false);
     }
@@ -60,10 +59,13 @@ export default function SignUpScreen({ navigation }: Props) {
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      {loading && <LoadingOverlay label="Creating your account..." />}
+      {loading && <LoadingOverlay label={t('auth.signUpLoading')} />}
       <ScrollView contentContainerStyle={styles.scroll}>
-        <Text style={styles.title}>Create your account</Text>
-        <Text style={styles.subtitle}>Get roadside help, or offer it</Text>
+        <View style={styles.topRow}>
+          <LanguageToggle />
+        </View>
+        <Text style={styles.title}>{t('auth.createAccount')}</Text>
+        <Text style={styles.subtitle}>{t('auth.signUpSubtitle')}</Text>
 
         <View style={styles.roleToggle}>
           <Pressable
@@ -71,7 +73,7 @@ export default function SignUpScreen({ navigation }: Props) {
             onPress={() => setRole('client')}
           >
             <Text style={[styles.roleText, role === 'client' && styles.roleTextActive]}>
-              I need help
+              {t('auth.iNeedHelp')}
             </Text>
           </Pressable>
           <Pressable
@@ -79,16 +81,26 @@ export default function SignUpScreen({ navigation }: Props) {
             onPress={() => setRole('worker')}
           >
             <Text style={[styles.roleText, role === 'worker' && styles.roleTextActive]}>
-              I provide a service
+              {t('auth.iProvideService')}
             </Text>
           </Pressable>
         </View>
 
-        <TextInput style={styles.input} placeholder="First name" value={firstName} onChangeText={setFirstName} />
-        <TextInput style={styles.input} placeholder="Last name" value={lastName} onChangeText={setLastName} />
         <TextInput
           style={styles.input}
-          placeholder="Email"
+          placeholder={t('auth.firstName')}
+          value={firstName}
+          onChangeText={setFirstName}
+        />
+        <TextInput
+          style={styles.input}
+          placeholder={t('auth.lastName')}
+          value={lastName}
+          onChangeText={setLastName}
+        />
+        <TextInput
+          style={styles.input}
+          placeholder={t('auth.email')}
           autoCapitalize="none"
           keyboardType="email-address"
           value={email}
@@ -96,22 +108,19 @@ export default function SignUpScreen({ navigation }: Props) {
         />
         <TextInput
           style={styles.input}
-          placeholder="Password (min 6 characters)"
+          placeholder={t('auth.passwordMin')}
           secureTextEntry
           value={password}
           onChangeText={setPassword}
         />
         <TextInput
           style={styles.input}
-          placeholder="National ID number"
+          placeholder={t('auth.nationalId')}
           keyboardType="number-pad"
           value={nationalId}
           onChangeText={setNationalId}
         />
-        <Text style={styles.idHint}>
-          Used to verify your identity in case of a scam report. It's encrypted before it ever
-          leaves your device.
-        </Text>
+        <Text style={styles.idHint}>{t('auth.nationalIdHint')}</Text>
 
         {error && <Text style={styles.error}>{error}</Text>}
 
@@ -120,11 +129,11 @@ export default function SignUpScreen({ navigation }: Props) {
           disabled={!canSubmit}
           onPress={handleSignUp}
         >
-          <Text style={styles.buttonText}>Sign Up</Text>
+          <Text style={styles.buttonText}>{t('auth.signUp')}</Text>
         </Pressable>
 
         <Pressable onPress={() => navigation.navigate('SignIn')}>
-          <Text style={styles.link}>Already have an account? Sign in</Text>
+          <Text style={styles.link}>{t('auth.alreadyHaveAccount')}</Text>
         </Pressable>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -134,6 +143,7 @@ export default function SignUpScreen({ navigation }: Props) {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   scroll: { padding: 24, justifyContent: 'center', flexGrow: 1 },
+  topRow: { alignItems: 'flex-end', marginBottom: 8 },
   title: { fontSize: 26, fontWeight: '700', color: colors.text },
   subtitle: { fontSize: 14, color: colors.textMuted, marginTop: 4, marginBottom: 20 },
   roleToggle: {

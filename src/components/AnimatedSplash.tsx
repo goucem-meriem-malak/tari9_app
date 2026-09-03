@@ -12,6 +12,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors } from '@/constants/colors';
+import { useT } from '@/store/useLocaleStore';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 const LOGO_SIZE = 160;
@@ -32,6 +33,7 @@ interface Props {
  * already fast.
  */
 export default function AnimatedSplash({ onFinish }: Props) {
+  const t = useT();
   const logoOpacity = useSharedValue(0);
   const logoScale = useSharedValue(0.85);
   const shimmerX = useSharedValue(-1);
@@ -110,7 +112,7 @@ export default function AnimatedSplash({ onFinish }: Props) {
       </View>
 
       <Animated.Text style={[styles.wordmark, textStyle]}>TARI9</Animated.Text>
-      <Animated.Text style={[styles.tagline, taglineStyle]}>Help is on the way</Animated.Text>
+      <Animated.Text style={[styles.tagline, taglineStyle]}>{t('splash.tagline')}</Animated.Text>
     </Animated.View>
   );
 }

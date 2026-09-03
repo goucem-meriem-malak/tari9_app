@@ -2,38 +2,186 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Users can only read/write their own profile doc.
+    // ---------------------------------------------------------------
+    // Users
+    // A user can only ever read/write their own profile doc.
+    // ---------------------------------------------------------------
     match /users/{uid} {
       allow read, write: if request.auth != null && request.auth.uid == uid;
     }
 
-    // Provider profile doc ID == owning worker's uid (see providerProfile.ts).
-    // Anyone signed in can read providers (clients need to browse them);
-    // only the owning worker can create/edit their own listing.
+    // ---------------------------------------------------------------
+    // Providers
+    // Anyone signed in can read a provider listing (clients need to
+    // browse them). Only the owning worker can create/edit their own
+    // listing, and only a fixed set of fields is editable after the
+    // listing is created (a worker can't silently reassign ownership,
+    // switch service type after the fact, etc. - onboarding creates it
+    // once; afterwards only availability/name/phone/location move).
+    //
+    // pushToken does NOT live on this doc (see /private/contact below).
+    // Rules can only grant/deny a whole document, never "this doc minus
+    // one field" - since this doc has to stay browsable by any signed-in
+    // client, the token had to move somewhere with its own, stricter
+    // rule. request.resource guards below just make sure it can never be
+    // smuggled back in through a create/update on this doc.
     match /providers/{providerId} {
       allow read: if request.auth != null;
-      allow create, update: if request.auth != null && request.auth.uid == providerId;
-      allow delete: if false;
-    }
-
-    // A request can be read by the client who sent it or the provider it
-    // was sent to. Creation is client-only; state updates (accept/decline/
-    // complete/cancel) are restricted to whichever side is allowed to make
-    // that particular transition.
-    match /requests/{requestId} {
-      allow read: if request.auth != null &&
-        (request.auth.uid == resource.data.clientId ||
-         request.auth.uid == resource.data.providerId);
 
       allow create: if request.auth != null &&
-        request.auth.uid == request.resource.data.clientId;
+        request.auth.uid == providerId &&
+        request.resource.data.ownerUid == providerId &&
+        !('pushToken' in request.resource.data);
 
       allow update: if request.auth != null &&
-        (request.auth.uid == resource.data.clientId ||
-         request.auth.uid == resource.data.providerId);
+        request.auth.uid == providerId &&
+        request.resource.data.ownerUid == resource.data.ownerUid &&
+        request.resource.data.type == resource.data.type &&
+        !('pushToken' in request.resource.data);
 
-      allow delete: if request.auth != null &&
-        request.auth.uid == resource.data.clientId;
+      allow delete: if false;
+
+      // ---------------------------------------------------------------
+      // Push token, split into its own doc specifically so it can carry
+      // a rule stricter than "any signed-in user." Readable only by the
+      // provider themself, or a client with a currently pending/accepted
+      // request with this exact provider (checked via the activeClients
+      // mirror below, since rules can't run a "does a matching request
+      // exist" query - only a get()/exists() on a known path).
+      // ---------------------------------------------------------------
+      match /private/contact {
+        allow read: if request.auth != null &&
+          (request.auth.uid == providerId ||
+           exists(/databases/$(database)/documents/providers/$(providerId)/activeClients/$(request.auth.uid)));
+
+        // Only the provider ever writes their own token (see push.ts).
+        allow write: if request.auth != null && request.auth.uid == providerId;
+      }
+
+      // ---------------------------------------------------------------
+      // activeClients mirror: one doc per client currently in a
+      // pending/accepted request with this provider. This is NOT a
+      // trust-me flag - every write is checked against the real
+      // requests/{requestId} doc it references, so a client can't
+      // fabricate an entry to read a token they have no relationship to.
+      // Written alongside the real request writes in requests.ts
+      // (same addDoc/transaction), so it can never drift out of sync.
+      // ---------------------------------------------------------------
+      match /activeClients/{clientId} {
+        function referencedRequest() {
+          return get(/databases/$(database)/documents/requests/$(request.resource.data.requestId)).data;
+        }
+
+        function isValidMirrorWrite() {
+          let req = referencedRequest();
+          return request.resource.data.requestId is string &&
+            req.clientId == clientId &&
+            req.providerId == providerId &&
+            (req.state == 'pending' || req.state == 'accepted') &&
+            (request.auth.uid == clientId || request.auth.uid == providerId);
+        }
+
+        allow read: if request.auth != null &&
+          (request.auth.uid == clientId || request.auth.uid == providerId);
+
+        allow create, update: if request.auth != null && isValidMirrorWrite();
+
+        // Either party can clear it once the underlying request is no
+        // longer active (declined/completed/cancelled) - requests.ts
+        // does this in the same transaction as the state transition.
+        allow delete: if request.auth != null &&
+          (request.auth.uid == clientId || request.auth.uid == providerId);
+      }
+    }
+
+    // ---------------------------------------------------------------
+    // Requests
+    //
+    // Field groups:
+    //   - immutable once created: clientId, providerId, type, price,
+    //     priceBreakdown, distanceMeters, clientLocation, address, extra,
+    //     createdAt
+    //   - mutable, and only via an allowed state transition below:
+    //     state, updatedAt, providerLocation
+    //
+    // State machine (see src/types/index.ts RequestState):
+    //   pending   -> accepted   (provider only)
+    //   pending   -> declined   (provider only)
+    //   pending   -> cancelled  (client only)
+    //   accepted  -> cancelled  (client only)
+    //   accepted  -> completed  (provider only)
+    // No other transition is allowed, and a request can't be edited
+    // once it reaches declined/completed/cancelled.
+    // ---------------------------------------------------------------
+    match /requests/{requestId} {
+      function isParty() {
+        return request.auth != null &&
+          (request.auth.uid == resource.data.clientId ||
+           request.auth.uid == resource.data.providerId);
+      }
+
+      function immutableFieldsUnchanged() {
+        let before = resource.data;
+        let after = request.resource.data;
+        return after.clientId == before.clientId &&
+          after.providerId == before.providerId &&
+          after.type == before.type &&
+          after.price == before.price &&
+          after.distanceMeters == before.distanceMeters &&
+          after.clientLocation == before.clientLocation &&
+          after.address == before.address &&
+          after.extra == before.extra &&
+          after.createdAt == before.createdAt;
+      }
+
+      function isValidTransition() {
+        let before = resource.data.state;
+        let after = request.resource.data.state;
+        let isClient = request.auth.uid == resource.data.clientId;
+        let isProvider = request.auth.uid == resource.data.providerId;
+        return
+          (isProvider && before == 'pending'  && after == 'accepted') ||
+          (isProvider && before == 'pending'  && after == 'declined') ||
+          (isProvider && before == 'accepted' && after == 'completed') ||
+          (isClient   && before == 'pending'  && after == 'cancelled') ||
+          (isClient   && before == 'accepted' && after == 'cancelled');
+      }
+
+      // Payment (see src/types/index.ts PaymentMethod/PaymentStatus):
+      // client-only, job must already be 'completed', 'state' itself
+      // doesn't change here, and a request can only ever be marked paid
+      // once - no re-paying, no un-paying, and a provider can never set
+      // this (that would let a provider mark their own job "paid").
+      function isValidPaymentUpdate() {
+        let before = resource.data;
+        let after = request.resource.data;
+        let isClient = request.auth.uid == before.clientId;
+        return isClient &&
+          before.state == 'completed' &&
+          after.state == before.state &&
+          (!('paymentStatus' in before) || before.paymentStatus != 'paid') &&
+          after.paymentStatus == 'paid' &&
+          (after.paymentMethod == 'cash' || after.paymentMethod == 'card') &&
+          after.paidAt is number;
+      }
+
+      allow read: if isParty();
+
+      allow create: if request.auth != null &&
+        request.auth.uid == request.resource.data.clientId &&
+        request.resource.data.state == 'pending' &&
+        request.resource.data.price is number &&
+        request.resource.data.price > 0 &&
+        request.resource.data.distanceMeters is number &&
+        request.resource.data.distanceMeters >= 0;
+
+      // Cancelling used to be a hard delete client-side; it's now just
+      // another state transition, so no separate delete path is needed
+      // or allowed - this keeps a full audit trail of every request.
+      allow update: if isParty() && immutableFieldsUnchanged() &&
+        (isValidTransition() || isValidPaymentUpdate());
+
+      allow delete: if false;
     }
   }
 }

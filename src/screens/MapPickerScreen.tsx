@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '@/navigation/types';
 import { useRequestStore } from '@/store/useRequestStore';
+import { useT } from '@/store/useLocaleStore';
 import { getCurrentLocation, reverseGeocode, requestLocationPermission } from '@/services/geo';
 import { getServiceType } from '@/config/serviceTypes';
 import { GeoPoint } from '@/types';
@@ -15,6 +16,7 @@ type Props = NativeStackScreenProps<RootStackParamList, 'MapPicker'>;
 const FALLBACK_CENTER: GeoPoint = { lat: 35.4, lng: 8.12 }; // Tébessa, DZ
 
 export default function MapPickerScreen({ navigation }: Props) {
+  const t = useT();
   const setLocation = useRequestStore((s) => s.setLocation);
   const serviceType = useRequestStore((s) => s.serviceType);
   const [selected, setSelected] = useState<GeoPoint | null>(null);
@@ -55,17 +57,17 @@ export default function MapPickerScreen({ navigation }: Props) {
   return (
     <View style={styles.container}>
       {(loading || confirming) && (
-        <LoadingOverlay label={loading ? 'Finding your location...' : 'Getting address...'} />
+        <LoadingOverlay label={loading ? t('mapPicker.findingLocation') : t('mapPicker.gettingAddress')} />
       )}
       <OsmMap center={center} marker={selected ?? undefined} onMapPress={setSelected} />
       <View style={styles.footer}>
-        <Text style={styles.hint}>Tap the map to drop a pin, or use your current location.</Text>
+        <Text style={styles.hint}>{t('mapPicker.hint')}</Text>
         <Pressable
           style={[styles.button, !selected && styles.buttonDisabled]}
           disabled={!selected}
           onPress={handleConfirm}
         >
-          <Text style={styles.buttonText}>Confirm Location</Text>
+          <Text style={styles.buttonText}>{t('mapPicker.confirm')}</Text>
         </Pressable>
       </View>
     </View>

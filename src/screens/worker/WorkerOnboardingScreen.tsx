@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { ScrollView, StyleSheet, Text, TextInput, View, Pressable } from 'react-native';
 import { SERVICE_TYPES, ServiceTypeId } from '@/config/serviceTypes';
 import { useAuthStore } from '@/store/useAuthStore';
+import { useT } from '@/store/useLocaleStore';
 import { createProviderProfile } from '@/services/providerProfile';
 import { getCurrentLocation, reverseGeocode, requestLocationPermission } from '@/services/geo';
 import { colors } from '@/constants/colors';
@@ -11,6 +12,7 @@ import LoadingOverlay from '@/components/LoadingOverlay';
 // app split across list_mechanics/list_garage/etc "become a provider" forms,
 // but as one flow driven by the same SERVICE_TYPES config the client uses.
 export default function WorkerOnboardingScreen() {
+  const t = useT();
   const { firebaseUid, appUser, setProviderProfile } = useAuthStore();
   const [type, setType] = useState<ServiceTypeId | null>(null);
   const [businessName, setBusinessName] = useState(
@@ -29,7 +31,7 @@ export default function WorkerOnboardingScreen() {
     try {
       const granted = await requestLocationPermission();
       if (!granted) {
-        setError('Location permission is required so clients can find you.');
+        setError(t('workerOnboarding.locationPermissionError'));
         setLoading(false);
         return;
       }
@@ -45,7 +47,7 @@ export default function WorkerOnboardingScreen() {
       });
       setProviderProfile(provider);
     } catch (e) {
-      setError('Could not create your provider profile. Please try again.');
+      setError(t('workerOnboarding.createError'));
     } finally {
       setLoading(false);
     }
@@ -53,9 +55,9 @@ export default function WorkerOnboardingScreen() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      {loading && <LoadingOverlay label="Setting up your profile..." />}
-      <Text style={styles.title}>Set up your service</Text>
-      <Text style={styles.subtitle}>Clients will find you under this category</Text>
+      {loading && <LoadingOverlay label={t('workerOnboarding.settingUp')} />}
+      <Text style={styles.title}>{t('workerOnboarding.title')}</Text>
+      <Text style={styles.subtitle}>{t('workerOnboarding.subtitle')}</Text>
 
       <View style={styles.grid}>
         {SERVICE_TYPES.map((s) => (
@@ -66,22 +68,22 @@ export default function WorkerOnboardingScreen() {
           >
             <Text style={styles.typeIcon}>{s.icon}</Text>
             <Text style={[styles.typeLabel, type === s.id && styles.typeLabelActive]}>
-              {s.label}
+              {t(`services.${s.id}.label`)}
             </Text>
           </Pressable>
         ))}
       </View>
 
-      <Text style={styles.label}>Business / display name</Text>
+      <Text style={styles.label}>{t('workerOnboarding.businessName')}</Text>
       <TextInput style={styles.input} value={businessName} onChangeText={setBusinessName} />
 
-      <Text style={styles.label}>Contact phone</Text>
+      <Text style={styles.label}>{t('workerOnboarding.contactPhone')}</Text>
       <TextInput
         style={styles.input}
         value={phone}
         onChangeText={setPhone}
         keyboardType="phone-pad"
-        placeholder="+213..."
+        placeholder={t('common.phonePlaceholder')}
       />
 
       {error && <Text style={styles.error}>{error}</Text>}
@@ -91,11 +93,9 @@ export default function WorkerOnboardingScreen() {
         disabled={!canSubmit}
         onPress={handleSubmit}
       >
-        <Text style={styles.buttonText}>Start Receiving Requests</Text>
+        <Text style={styles.buttonText}>{t('workerOnboarding.submitButton')}</Text>
       </Pressable>
-      <Text style={styles.hint}>
-        We'll use your current location as your service base - you can update it anytime from your profile.
-      </Text>
+      <Text style={styles.hint}>{t('workerOnboarding.locationHint')}</Text>
     </ScrollView>
   );
 }

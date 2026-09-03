@@ -2,6 +2,7 @@ import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Provider } from '@/types';
 import { colors } from '@/constants/colors';
+import { useT } from '@/store/useLocaleStore';
 
 interface Props {
   provider: Provider;
@@ -11,6 +12,7 @@ interface Props {
 }
 
 export default function ProviderCard({ provider, price, priceLabel, onPress }: Props) {
+  const t = useT();
   const km = ((provider.distanceMeters ?? 0) / 1000).toFixed(1);
   return (
     <Pressable style={styles.card} onPress={onPress}>
@@ -19,9 +21,11 @@ export default function ProviderCard({ provider, price, priceLabel, onPress }: P
       </View>
       <View style={styles.info}>
         <Text style={styles.name}>{provider.name}</Text>
-        <Text style={styles.meta}>{km} km away{provider.rating ? ` · ★ ${provider.rating.toFixed(1)}` : ''}</Text>
+        <Text style={styles.meta}>
+          {t('providerCard.kmAway', { km })}{provider.rating ? ` · ★ ${provider.rating.toFixed(1)}` : ''}
+        </Text>
       </View>
-      <Text style={styles.price}>{priceLabel ?? `${price} DA`}</Text>
+      <Text style={styles.price}>{priceLabel ?? `${price} ${t('common.currency')}`}</Text>
     </Pressable>
   );
 }

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { FlatList, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { colors } from '@/constants/colors';
+import { useT } from '@/store/useLocaleStore';
 
 export interface SelectDropdownOption {
   value: string;
@@ -23,6 +24,7 @@ interface Props {
  */
 export default function SelectDropdown({ label, value, options, placeholder, onChange }: Props) {
   const [open, setOpen] = useState(false);
+  const t = useT();
   const selected = options.find((o) => o.value === value);
 
   return (
@@ -30,7 +32,7 @@ export default function SelectDropdown({ label, value, options, placeholder, onC
       {label ? <Text style={styles.label}>{label}</Text> : null}
       <Pressable style={styles.dropdown} onPress={() => setOpen(true)}>
         <Text style={[styles.dropdownText, !selected && styles.dropdownPlaceholder]}>
-          {selected ? selected.label : placeholder ?? 'Select...'}
+          {selected ? selected.label : placeholder ?? t('common.selectPlaceholder')}
         </Text>
         <Text style={styles.dropdownChevron}>▾</Text>
       </Pressable>
@@ -63,7 +65,7 @@ export default function SelectDropdown({ label, value, options, placeholder, onC
               }}
             />
             <Pressable style={styles.modalCancel} onPress={() => setOpen(false)}>
-              <Text style={styles.modalCancelText}>Cancel</Text>
+              <Text style={styles.modalCancelText}>{t('common.cancel')}</Text>
             </Pressable>
           </Pressable>
         </Pressable>

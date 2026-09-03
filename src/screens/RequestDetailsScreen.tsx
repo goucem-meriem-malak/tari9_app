@@ -4,6 +4,7 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '@/navigation/types';
 import { useRequestStore } from '@/store/useRequestStore';
 import { useAuthStore } from '@/store/useAuthStore';
+import { useT } from '@/store/useLocaleStore';
 import { getServiceType, ExtraFieldConfig, VEHICLE_TYPE_OPTIONS } from '@/config/serviceTypes';
 import { calculateItemCost } from '@/utils/pricing';
 import SelectDropdown from '@/components/SelectDropdown';
@@ -14,10 +15,16 @@ type Props = NativeStackScreenProps<RootStackParamList, 'RequestDetails'>;
 // One screen for every service - it just reads whichever fields the picked
 // service declares in config/serviceTypes.ts and renders them. Adding a 7th
 // service with its own questions means adding config, not a new screen.
+// Field labels/placeholders/options are translated via the serviceFields /
+// fieldOptions i18n namespaces (keyed by field.key / option.value), so a
+// new service automatically gets translated copy as long as those keys
+// are filled in - no per-service translation wiring needed here.
 export default function RequestDetailsScreen({ navigation }: Props) {
+  const t = useT();
   const { serviceType, setExtra } = useRequestStore();
   const savedVehicles = useAuthStore((s) => s.appUser?.vehicles) ?? [];
   const service = serviceType ? getServiceType(serviceType) : null;
+  const serviceLabel = serviceType ? t(`services.${serviceType}.label`) : '';
   const fields = service?.extraFields ?? [];
 
   const [values, setValues] = useState<Record<string, string | number>>({});
@@ -59,15 +66,17 @@ export default function RequestDetailsScreen({ navigation }: Props) {
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.scroll}>
       <Text style={styles.title}>
-        {service.icon} A few details for your {service.label.toLowerCase()} request
+        {service.icon} {t('requestDetails.title', { service: serviceLabel.toLowerCase() })}
       </Text>
 
       {showVehiclePicker && (
         <View style={styles.savedVehiclesWrap}>
-          <Text style={styles.label}>Use a saved vehicle</Text>
+          <Text style={styles.label}>{t('requestDetails.useSavedVehicle')}</Text>
           <View style={styles.savedVehiclesRow}>
             {savedVehicles.map((v) => {
-              const typeLabel = VEHICLE_TYPE_OPTIONS.find((o) => o.value === v.vehicleType)?.label ?? '';
+              const typeLabel = VEHICLE_TYPE_OPTIONS.find((o) => o.value === v.vehicleType)
+                ? t(`fieldOptions.${v.vehicleType}`)
+                : '';
               const isActive = values.vehicleMakeModel === v.makeModel && values.vehicleType === v.vehicleType;
               return (
                 <Pressable
@@ -91,11 +100,9 @@ export default function RequestDetailsScreen({ navigation }: Props) {
 
       {hasItemCost && (
         <View style={styles.pricePreview}>
-          <Text style={styles.pricePreviewLabel}>Estimated item cost</Text>
-          <Text style={styles.pricePreviewValue}>{itemCostPreview} DA</Text>
-          <Text style={styles.pricePreviewHint}>
-            Delivery cost is added once you pick a provider, based on distance.
-          </Text>
+          <Text style={styles.pricePreviewLabel}>{t('requestDetails.estimatedItemCost')}</Text>
+          <Text style={styles.pricePreviewValue}>{itemCostPreview} {t('common.currency')}</Text>
+          <Text style={styles.pricePreviewHint}>{t('requestDetails.deliveryCostHint')}</Text>
         </View>
       )}
 
@@ -104,7 +111,7 @@ export default function RequestDetailsScreen({ navigation }: Props) {
         disabled={!canSubmit}
         onPress={handleContinue}
       >
-        <Text style={styles.buttonText}>Continue</Text>
+        <Text style={styles.buttonText}>{t('common.continue')}</Text>
       </Pressable>
     </ScrollView>
   );
@@ -119,12 +126,21 @@ function FieldInput({
   value: string | number | undefined;
   onChange: (key: string, value: string | number) => void;
 }) {
+  const t = useT();
+  // Every field/option in config/serviceTypes.ts has a matching translated
+  // entry (serviceFields.<key> / fieldOptions.<value>). Fall back to the
+  // config's own English copy only if a key is ever missing, so a new
+  // service that forgets to add a translation still renders something.
+  const label = t(`serviceFields.${field.key}.label`) || field.label;
+  const placeholder = field.placeholder ? t(`serviceFields.${field.key}.placeholder`) || field.placeholder : undefined;
+
   if (field.type === 'select') {
+    const options = (field.options ?? []).map((o) => ({ value: o.value, label: t(`fieldOptions.${o.value}`) }));
     return (
       <SelectDropdown
-        label={field.label}
+        label={label}
         value={value as string | undefined}
-        options={field.options ?? []}
+        options={options}
         onChange={(v) => onChange(field.key, v)}
       />
     );
@@ -133,11 +149,11 @@ function FieldInput({
   return (
     <View style={styles.fieldWrap}>
       <Text style={styles.label}>
-        {field.label} {field.unit ? `(${field.unit})` : ''}
+        {label} {field.unit ? `(${field.unit})` : ''}
       </Text>
       <TextInput
         style={[styles.input, field.type === 'textarea' && styles.textarea]}
-        placeholder={field.placeholder}
+        placeholder={placeholder}
         value={value !== undefined ? String(value) : ''}
         onChangeText={(text) =>
           onChange(field.key, field.type === 'number' ? text.replace(/[^0-9.]/g, '') : text)

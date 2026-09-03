@@ -3,6 +3,7 @@ import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '@/navigation/types';
 import { useAuthStore } from '@/store/useAuthStore';
+import { useT } from '@/store/useLocaleStore';
 import { updateAppUser, signOutUser } from '@/services/auth';
 import { colors } from '@/constants/colors';
 import { encryptNationalId, decryptNationalId } from '@/utils/idCrypto';
@@ -19,6 +20,7 @@ function makeVehicleId(): string {
 }
 
 export default function ProfileScreen({}: Props) {
+  const t = useT();
   const { appUser, firebaseUid, setAppUser } = useAuthStore();
   const [firstName, setFirstName] = useState(appUser?.firstName ?? '');
   const [lastName, setLastName] = useState(appUser?.lastName ?? '');
@@ -28,6 +30,18 @@ export default function ProfileScreen({}: Props) {
   const [newVehicleType, setNewVehicleType] = useState<string | undefined>(undefined);
   const [newVehicleMakeModel, setNewVehicleMakeModel] = useState('');
   const [saving, setSaving] = useState(false);
+
+  // Translated options for the vehicle-type dropdown - same value list as
+  // config/serviceTypes.ts, labels looked up in fieldOptions so they stay
+  // in sync with the request-details form instead of a second copy.
+  const vehicleTypeOptions = VEHICLE_TYPE_OPTIONS.map((o) => ({
+    value: o.value,
+    label: t(`fieldOptions.${o.value}`),
+  }));
+
+  function vehicleTypeLabel(value: string): string {
+    return t(`fieldOptions.${value}`);
+  }
 
   function handleAddVehicle() {
     if (!newVehicleType || !newVehicleMakeModel.trim() || vehicles.length >= MAX_VEHICLES) return;
@@ -52,9 +66,9 @@ export default function ProfileScreen({}: Props) {
       setAppUser(
         appUser ? { ...appUser, firstName, lastName, phone, nationalId: encryptedId, vehicles } : appUser
       );
-      Alert.alert('Saved', 'Your profile has been updated.');
+      Alert.alert(t('common.savedTitle'), t('profile.savedMessage'));
     } catch (e) {
-      Alert.alert('Could not save', 'Check your connection and try again.');
+      Alert.alert(t('common.couldNotSaveTitle'), t('common.checkConnectionRetry'));
     } finally {
       setSaving(false);
     }
@@ -62,22 +76,22 @@ export default function ProfileScreen({}: Props) {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.scroll}>
-      <Text style={styles.label}>First name</Text>
+      <Text style={styles.label}>{t('auth.firstName')}</Text>
       <TextInput style={styles.input} value={firstName} onChangeText={setFirstName} />
 
-      <Text style={styles.label}>Last name</Text>
+      <Text style={styles.label}>{t('auth.lastName')}</Text>
       <TextInput style={styles.input} value={lastName} onChangeText={setLastName} />
 
-      <Text style={styles.label}>Phone</Text>
+      <Text style={styles.label}>{t('profile.phone')}</Text>
       <TextInput
         style={styles.input}
         value={phone}
         onChangeText={setPhone}
         keyboardType="phone-pad"
-        placeholder="+213..."
+        placeholder={t('common.phonePlaceholder')}
       />
 
-      <Text style={styles.label}>National ID</Text>
+      <Text style={styles.label}>{t('profile.nationalId')}</Text>
       <TextInput
         style={styles.input}
         value={nationalId}
@@ -86,15 +100,13 @@ export default function ProfileScreen({}: Props) {
       />
 
       <View style={styles.sectionHeaderRow}>
-        <Text style={styles.sectionTitle}>My Vehicles</Text>
+        <Text style={styles.sectionTitle}>{t('profile.myVehicles')}</Text>
         <Text style={styles.sectionHint}>{vehicles.length}/{MAX_VEHICLES}</Text>
       </View>
-      <Text style={styles.sectionSubtext}>
-        Saved vehicles auto-fill on mechanic, tow, and garage requests - still editable per request.
-      </Text>
+      <Text style={styles.sectionSubtext}>{t('profile.vehiclesSubtext')}</Text>
 
       {vehicles.map((v) => {
-        const typeLabel = VEHICLE_TYPE_OPTIONS.find((o) => o.value === v.vehicleType)?.label ?? '';
+        const typeLabel = vehicleTypeLabel(v.vehicleType);
         return (
           <View key={v.id} style={styles.vehicleRow}>
             <View style={styles.vehicleInfo}>
@@ -102,7 +114,7 @@ export default function ProfileScreen({}: Props) {
               <Text style={styles.vehicleType}>{typeLabel}</Text>
             </View>
             <Pressable onPress={() => handleRemoveVehicle(v.id)} hitSlop={10}>
-              <Text style={styles.removeVehicle}>Remove</Text>
+              <Text style={styles.removeVehicle}>{t('common.remove')}</Text>
             </Pressable>
           </View>
         );
@@ -111,17 +123,17 @@ export default function ProfileScreen({}: Props) {
       {vehicles.length < MAX_VEHICLES && (
         <View style={styles.addVehicleWrap}>
           <SelectDropdown
-            label="Vehicle type"
+            label={t('serviceFields.vehicleType.label')}
             value={newVehicleType}
-            options={VEHICLE_TYPE_OPTIONS}
+            options={vehicleTypeOptions}
             onChange={setNewVehicleType}
           />
-          <Text style={styles.label}>Make & model</Text>
+          <Text style={styles.label}>{t('serviceFields.vehicleMakeModel.label')}</Text>
           <TextInput
             style={styles.input}
             value={newVehicleMakeModel}
             onChangeText={setNewVehicleMakeModel}
-            placeholder="e.g. Renault Symbol"
+            placeholder={t('serviceFields.vehicleMakeModel.placeholder')}
           />
           <Pressable
             style={[
@@ -131,7 +143,7 @@ export default function ProfileScreen({}: Props) {
             disabled={!newVehicleType || !newVehicleMakeModel.trim()}
             onPress={handleAddVehicle}
           >
-            <Text style={styles.addVehicleText}>+ Add Vehicle</Text>
+            <Text style={styles.addVehicleText}>{t('profile.addVehicle')}</Text>
           </Pressable>
         </View>
       )}
@@ -139,11 +151,11 @@ export default function ProfileScreen({}: Props) {
       <Text style={styles.emailLabel}>{appUser?.email}</Text>
 
       <Pressable style={styles.saveButton} onPress={handleSave} disabled={saving}>
-        <Text style={styles.saveText}>{saving ? 'Saving...' : 'Save Changes'}</Text>
+        <Text style={styles.saveText}>{saving ? t('common.saving') : t('common.saveChanges')}</Text>
       </Pressable>
 
       <Pressable style={styles.signOutButton} onPress={() => signOutUser()}>
-        <Text style={styles.signOutText}>Sign Out</Text>
+        <Text style={styles.signOutText}>{t('common.signOut')}</Text>
       </Pressable>
     </ScrollView>
   );

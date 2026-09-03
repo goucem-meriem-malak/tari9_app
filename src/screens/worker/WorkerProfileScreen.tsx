@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useAuthStore } from '@/store/useAuthStore';
+import { useT } from '@/store/useLocaleStore';
 import { updateProviderProfile } from '@/services/providerProfile';
 import { signOutUser } from '@/services/auth';
 import { colors } from '@/constants/colors';
 import { getServiceType } from '@/config/serviceTypes';
 
 export default function WorkerProfileScreen() {
+  const t = useT();
   const { providerProfile, setProviderProfile, appUser } = useAuthStore();
   const [name, setName] = useState(providerProfile?.name ?? '');
   const [phone, setPhone] = useState(providerProfile?.phone ?? '');
@@ -21,29 +23,29 @@ export default function WorkerProfileScreen() {
     await updateProviderProfile(providerProfile.id, { name, phone });
     setProviderProfile({ ...providerProfile, name, phone });
     setSaving(false);
-    Alert.alert('Saved', 'Your provider profile has been updated.');
+    Alert.alert(t('common.savedTitle'), t('workerProfile.savedMessage'));
   }
 
   return (
     <View style={styles.container}>
       <Text style={styles.serviceBadge}>
-        {service.icon} {service.label}
+        {service.icon} {t(`services.${providerProfile.type}.label`)}
       </Text>
 
-      <Text style={styles.label}>Business / display name</Text>
+      <Text style={styles.label}>{t('workerOnboarding.businessName')}</Text>
       <TextInput style={styles.input} value={name} onChangeText={setName} />
 
-      <Text style={styles.label}>Contact phone</Text>
+      <Text style={styles.label}>{t('workerOnboarding.contactPhone')}</Text>
       <TextInput style={styles.input} value={phone} onChangeText={setPhone} keyboardType="phone-pad" />
 
       <Text style={styles.emailLabel}>{appUser?.email}</Text>
 
       <Pressable style={styles.saveButton} onPress={handleSave} disabled={saving}>
-        <Text style={styles.saveText}>{saving ? 'Saving...' : 'Save Changes'}</Text>
+        <Text style={styles.saveText}>{saving ? t('common.saving') : t('common.saveChanges')}</Text>
       </Pressable>
 
       <Pressable style={styles.signOutButton} onPress={() => signOutUser()}>
-        <Text style={styles.signOutText}>Sign Out</Text>
+        <Text style={styles.signOutText}>{t('common.signOut')}</Text>
       </Pressable>
     </View>
   );

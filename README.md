@@ -90,8 +90,24 @@ src/
   utils/          pricing, idCrypto
 ```
 
+## Localization
+
+`src/i18n/` holds English (`locales/en.ts`, the schema of record) and Arabic
+(`locales/ar.ts`, typed against it — a missing key is a compile error).
+`useLocaleStore` (`src/store/useLocaleStore.ts`) persists the chosen
+locale and exposes a `useT()` hook; `LanguageToggle` handles the
+RTL-relaunch that switching languages requires. `ServiceSelectScreen`,
+`ServiceTypeCard`, `SignInScreen`, `SignUpScreen`, and
+`WorkerDashboardScreen` are converted as a working example — see
+`FIXES.md` for the remaining screens and the pattern to follow.
+
 ## Known limitations
 
 - Requires connectivity to match with a live nearby provider (inherent to the real-time-matching model, not a bug)
 - Single-device push notifications only, no multi-device sync of push tokens
 - No in-app chat between client and provider yet (planned)
+- Most screens outside the ones listed under Localization are still English-only
+- Price is set client-side; Firestore rules block obviously-invalid values (negative/zero, post-creation edits) but can't verify a submitted price actually matches the pricing formula without a Cloud Function — see `FIXES.md`
+- A provider's Expo push token is readable by any signed-in client (needed for the current client-sends-the-push architecture); closing this properly needs a Cloud Function to broker push delivery server-side — see `FIXES.md`
+- National ID encryption key ships inside the app bundle (documented in `src/utils/idCrypto.ts`) — protects data at rest, not against reverse-engineering the installed app
+- No automated tests yet

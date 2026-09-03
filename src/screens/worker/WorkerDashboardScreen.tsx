@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
+  Alert,
   FlatList,
   Linking,
   Pressable,
@@ -17,19 +18,22 @@ import { sendPushNotification } from '@/services/push';
 import { getServiceType } from '@/config/serviceTypes';
 import { ServiceRequest } from '@/types';
 import { colors } from '@/constants/colors';
+import { useT } from '@/store/useLocaleStore';
 
 // Shown next to a client's name wherever the provider sees a request.
 // Deliberately just a checkmark + word - the provider never sees the ID
 // itself, only that one is on file (see ServiceRequest.clientIdVerified).
 function VerifiedBadge() {
+  const t = useT();
   return (
     <View style={styles.verifiedBadge}>
-      <Text style={styles.verifiedBadgeText}>✓ Verified</Text>
+      <Text style={styles.verifiedBadgeText}>{t('worker.verified')}</Text>
     </View>
   );
 }
 
 function ExtraDetails({ request }: { request: ServiceRequest }) {
+  const t = useT();
   if (!request.extra) return null;
   const service = getServiceType(request.type);
   const fields = service.extraFields ?? [];
@@ -38,11 +42,10 @@ function ExtraDetails({ request }: { request: ServiceRequest }) {
       {fields.map((field) => {
         const raw = request.extra?.[field.key];
         if (raw === undefined || raw === '') return null;
-        const display =
-          field.type === 'select' ? field.options?.find((o) => o.value === raw)?.label ?? raw : raw;
+        const display = field.type === 'select' ? t(`fieldOptions.${raw}`) : raw;
         return (
           <Text key={field.key} style={styles.extraLine}>
-            <Text style={styles.extraLabel}>{field.label}: </Text>
+            <Text style={styles.extraLabel}>{t(`serviceFields.${field.key}.label`)}: </Text>
             {display}
             {field.unit ? ` ${field.unit}` : ''}
           </Text>
@@ -55,6 +58,7 @@ function ExtraDetails({ request }: { request: ServiceRequest }) {
 type Props = NativeStackScreenProps<RootStackParamList, 'WorkerDashboard'>;
 
 export default function WorkerDashboardScreen({ navigation }: Props) {
+  const t = useT();
   const { providerProfile, setProviderProfile } = useAuthStore();
   const [requests, setRequests] = useState<ServiceRequest[]>([]);
   const [togglingAvailability, setTogglingAvailability] = useState(false);
@@ -77,21 +81,48 @@ export default function WorkerDashboardScreen({ navigation }: Props) {
   }
 
   async function handleAccept(request: ServiceRequest) {
-    await updateRequestState(request.id, 'accepted');
-    sendPushNotification(
-      request.clientPushToken,
-      'Request accepted',
-      `${providerProfile?.name ?? 'Your provider'} is on the way!`,
-      { requestId: request.id }
-    );
+    try {
+      await updateRequestState(request.id, 'accepted');
+      sendPushNotification(
+        request.clientPushToken,
+        t('worker.pushAcceptedTitle'),
+        t('worker.pushAcceptedBody', { name: providerProfile?.name || t('worker.pushYourProvider') }),
+        { requestId: request.id }
+      );
+    } catch (e: any) {
+      // Most likely: the client cancelled it a moment before this tap
+      // landed. The live listener already removes/updates this card -
+      // just tell the provider why the accept didn't go through.
+      Alert.alert(t('worker.couldNotAccept'), e?.message ?? t('common.retry'));
+    }
   }
 
   async function handleDecline(request: ServiceRequest) {
-    await updateRequestState(request.id, 'declined');
+    try {
+      await updateRequestState(request.id, 'declined');
+      sendPushNotification(
+        request.clientPushToken,
+        t('worker.pushDeclinedTitle'),
+        t('worker.pushDeclinedBody', { name: providerProfile?.name || t('worker.pushYourProvider') }),
+        { requestId: request.id }
+      );
+    } catch (e: any) {
+      Alert.alert(t('worker.couldNotDecline'), e?.message ?? t('common.retry'));
+    }
   }
 
   async function handleComplete(request: ServiceRequest) {
-    await updateRequestState(request.id, 'completed');
+    try {
+      await updateRequestState(request.id, 'completed');
+      sendPushNotification(
+        request.clientPushToken,
+        t('worker.pushCompletedTitle'),
+        t('worker.pushCompletedBody', { name: providerProfile?.name || t('worker.pushYourProvider') }),
+        { requestId: request.id }
+      );
+    } catch (e: any) {
+      Alert.alert(t('worker.couldNotComplete'), e?.message ?? t('common.retry'));
+    }
   }
 
   if (!providerProfile) return null;
@@ -104,11 +135,11 @@ export default function WorkerDashboardScreen({ navigation }: Props) {
           <Text style={styles.businessName}>
             {service.icon} {providerProfile.name}
           </Text>
-          <Text style={styles.serviceLabel}>{service.label}</Text>
+          <Text style={styles.serviceLabel}>{t(`services.${providerProfile.type}.label`)}</Text>
         </View>
         <View style={styles.availabilityWrap}>
           <Text style={styles.availabilityLabel}>
-            {providerProfile.available ? 'Online' : 'Offline'}
+            {providerProfile.available ? t('worker.online') : t('worker.offline')}
           </Text>
           <Switch
             value={providerProfile.available}
@@ -127,15 +158,15 @@ export default function WorkerDashboardScreen({ navigation }: Props) {
           <>
             {activeJob && (
               <View style={styles.activeCard}>
-                <Text style={styles.sectionTitle}>Active Job</Text>
+                <Text style={styles.sectionTitle}>{t('worker.activeJob')}</Text>
                 <View style={styles.nameRow}>
-                  <Text style={styles.clientName}>{activeJob.clientName || 'Client'}</Text>
+                  <Text style={styles.clientName}>{activeJob.clientName || t('worker.client')}</Text>
                   {activeJob.clientIdVerified && <VerifiedBadge />}
                 </View>
                 <Text style={styles.meta}>
                   {(activeJob.distanceMeters / 1000).toFixed(1)} km · {activeJob.address.city ?? ''} ·{' '}
                   {getServiceType(activeJob.type).pricingDisplay === 'estimateOnly' ? '~' : ''}
-                  {activeJob.price} DA
+                  {activeJob.price} {t('common.currency')}
                 </Text>
                 <ExtraDetails request={activeJob} />
                 <View style={styles.activeActions}>
@@ -144,45 +175,45 @@ export default function WorkerDashboardScreen({ navigation }: Props) {
                       style={styles.callButton}
                       onPress={() => Linking.openURL(`tel:${activeJob.clientPhone}`)}
                     >
-                      <Text style={styles.callText}>Call Client</Text>
+                      <Text style={styles.callText}>{t('worker.callClient')}</Text>
                     </Pressable>
                   ) : null}
                   <Pressable style={styles.completeButton} onPress={() => handleComplete(activeJob)}>
-                    <Text style={styles.completeText}>Mark Completed</Text>
+                    <Text style={styles.completeText}>{t('worker.markCompleted')}</Text>
                   </Pressable>
                 </View>
               </View>
             )}
             <Text style={styles.sectionTitle}>
-              Incoming Requests {pending.length > 0 ? `(${pending.length})` : ''}
+              {t('worker.incomingRequests')} {pending.length > 0 ? `(${pending.length})` : ''}
             </Text>
           </>
         }
         ListEmptyComponent={
           <Text style={styles.emptyText}>
             {providerProfile.available
-              ? 'No incoming requests right now.'
-              : "You're offline - go online to receive requests."}
+              ? t('worker.noIncomingRequests')
+              : t('worker.goOnlineToReceive')}
           </Text>
         }
         renderItem={({ item }) => (
           <View style={styles.requestCard}>
             <View style={styles.nameRow}>
-              <Text style={styles.clientName}>{item.clientName || 'Client'}</Text>
+              <Text style={styles.clientName}>{item.clientName || t('worker.client')}</Text>
               {item.clientIdVerified && <VerifiedBadge />}
             </View>
             <Text style={styles.meta}>
               {(item.distanceMeters / 1000).toFixed(1)} km · {item.address.city ?? ''} ·{' '}
               {getServiceType(item.type).pricingDisplay === 'estimateOnly' ? '~' : ''}
-              {item.price} DA
+              {item.price} {t('common.currency')}
             </Text>
             <ExtraDetails request={item} />
             <View style={styles.requestActions}>
               <Pressable style={styles.declineButton} onPress={() => handleDecline(item)}>
-                <Text style={styles.declineText}>Decline</Text>
+                <Text style={styles.declineText}>{t('worker.decline')}</Text>
               </Pressable>
               <Pressable style={styles.acceptButton} onPress={() => handleAccept(item)}>
-                <Text style={styles.acceptText}>Accept</Text>
+                <Text style={styles.acceptText}>{t('worker.accept')}</Text>
               </Pressable>
             </View>
           </View>
@@ -191,10 +222,10 @@ export default function WorkerDashboardScreen({ navigation }: Props) {
 
       <View style={styles.footerNav}>
         <Pressable onPress={() => navigation.navigate('WorkerHistory')}>
-          <Text style={styles.footerLink}>History</Text>
+          <Text style={styles.footerLink}>{t('common.history')}</Text>
         </Pressable>
         <Pressable onPress={() => navigation.navigate('WorkerProfile')}>
-          <Text style={styles.footerLink}>Profile</Text>
+          <Text style={styles.footerLink}>{t('common.profile')}</Text>
         </Pressable>
       </View>
     </View>

@@ -7,6 +7,7 @@ export type RootStackParamList = {
   RequestDetails: undefined;
   ProviderList: undefined;
   RequestStatus: { requestId: string };
+  Payment: { requestId: string };
   RequestHistory: undefined;
   Profile: undefined;
   // Worker

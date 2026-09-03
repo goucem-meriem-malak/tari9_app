@@ -13,10 +13,13 @@ import { RootStackParamList } from '@/navigation/types';
 import { signIn } from '@/services/auth';
 import { colors } from '@/constants/colors';
 import LoadingOverlay from '@/components/LoadingOverlay';
+import LanguageToggle from '@/components/LanguageToggle';
+import { useT } from '@/store/useLocaleStore';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'SignIn'>;
 
 export default function SignInScreen({ navigation }: Props) {
+  const t = useT();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -29,7 +32,7 @@ export default function SignInScreen({ navigation }: Props) {
       await signIn(email.trim(), password);
       // RootNavigator swaps stacks automatically on auth state change
     } catch (e: any) {
-      setError('Could not sign in. Check your email and password.');
+      setError(t('auth.signInError'));
     } finally {
       setLoading(false);
     }
@@ -40,13 +43,16 @@ export default function SignInScreen({ navigation }: Props) {
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      {loading && <LoadingOverlay label="Signing in..." />}
-      <Text style={styles.title}>Welcome back</Text>
-      <Text style={styles.subtitle}>Sign in to request roadside help</Text>
+      {loading && <LoadingOverlay label={t('auth.signInLoading')} />}
+      <View style={styles.topRow}>
+        <LanguageToggle />
+      </View>
+      <Text style={styles.title}>{t('auth.welcomeBack')}</Text>
+      <Text style={styles.subtitle}>{t('auth.signInSubtitle')}</Text>
 
       <TextInput
         style={styles.input}
-        placeholder="Email"
+        placeholder={t('auth.email')}
         autoCapitalize="none"
         keyboardType="email-address"
         value={email}
@@ -54,7 +60,7 @@ export default function SignInScreen({ navigation }: Props) {
       />
       <TextInput
         style={styles.input}
-        placeholder="Password"
+        placeholder={t('auth.password')}
         secureTextEntry
         value={password}
         onChangeText={setPassword}
@@ -67,11 +73,11 @@ export default function SignInScreen({ navigation }: Props) {
         disabled={!email || !password}
         onPress={handleSignIn}
       >
-        <Text style={styles.buttonText}>Sign In</Text>
+        <Text style={styles.buttonText}>{t('auth.signIn')}</Text>
       </Pressable>
 
       <Pressable onPress={() => navigation.navigate('SignUp')}>
-        <Text style={styles.link}>Don't have an account? Sign up</Text>
+        <Text style={styles.link}>{t('auth.noAccount')}</Text>
       </Pressable>
     </KeyboardAvoidingView>
   );
@@ -79,6 +85,7 @@ export default function SignInScreen({ navigation }: Props) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 24, justifyContent: 'center', backgroundColor: colors.background },
+  topRow: { position: 'absolute', top: 50, right: 24 },
   title: { fontSize: 26, fontWeight: '700', color: colors.text },
   subtitle: { fontSize: 14, color: colors.textMuted, marginTop: 4, marginBottom: 28 },
   input: {
@@ -89,6 +96,7 @@ const styles = StyleSheet.create({
     padding: 14,
     marginBottom: 12,
     fontSize: 15,
+    textAlign: 'left',
   },
   button: {
     backgroundColor: colors.primary,

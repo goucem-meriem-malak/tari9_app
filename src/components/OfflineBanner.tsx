@@ -2,6 +2,7 @@ import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
+import { useT } from '@/store/useLocaleStore';
 import { colors } from '@/constants/colors';
 
 /**
@@ -13,12 +14,13 @@ import { colors } from '@/constants/colors';
 export default function OfflineBanner() {
   const { isOffline } = useNetworkStatus();
   const insets = useSafeAreaInsets();
+  const t = useT();
 
   if (!isOffline) return null;
 
   return (
     <View style={[styles.banner, { paddingTop: insets.top + 6 }]}>
-      <Text style={styles.text}>You're offline - some features won't work until you reconnect</Text>
+      <Text style={styles.text}>{t('offline.banner')}</Text>
     </View>
   );
 }

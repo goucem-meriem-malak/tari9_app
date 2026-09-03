@@ -49,7 +49,14 @@ export interface Provider {
   address: Address;
   available: boolean;
   rating?: number;
-  pushToken?: string;
+  /**
+   * NOT on this doc/type - the browsable 'providers/{id}' doc is
+   * readable by any signed-in client, so the token lives in the
+   * separate 'providers/{id}/private/contact' doc instead (see
+   * firestore.rules and push.ts::getProviderPushToken). Deliberately
+   * omitted here so nothing accidentally re-attaches it to a provider
+   * write and violates the rules' pushToken guard.
+   */
   /** Client-side only, computed after fetch - not stored in Firestore */
   distanceMeters?: number;
 }
@@ -60,6 +67,21 @@ export type RequestState =
   | 'declined'
   | 'completed'
   | 'cancelled';
+
+/**
+ * No real gateway yet (see docs Section 8.2) - this is the groundwork:
+ * a client picks a method and the request records what was chosen and
+ * whether it's been settled. 'card' currently just simulates a charge
+ * client-side; wiring a real processor (mada/Apple Pay/STC Pay) later
+ * only means swapping what happens inside PaymentScreen's "pay now"
+ * handler, not this data model.
+ */
+// 'card' = generic Visa/Mastercard. 'edahabia' = Algérie Poste / CIB rail
+// (Algeria). 'mada' = Saudi domestic debit network. 'stcpay' = STC Pay
+// wallet (Saudi). All non-cash methods share the same simulated card-entry
+// form in PaymentScreen - see the note there.
+export type PaymentMethod = 'cash' | 'card' | 'edahabia' | 'mada' | 'stcpay';
+export type PaymentStatus = 'unpaid' | 'paid';
 
 export interface ServiceRequest {
   id: string;
@@ -91,4 +113,11 @@ export interface ServiceRequest {
   extra?: Record<string, string | number>;
   createdAt: number;
   updatedAt: number;
+  /**
+   * Settled once the job is 'completed' - see PaymentScreen. Absent on
+   * older/unpaid requests, which the UI treats the same as 'unpaid'.
+   */
+  paymentMethod?: PaymentMethod;
+  paymentStatus?: PaymentStatus;
+  paidAt?: number;
 }
