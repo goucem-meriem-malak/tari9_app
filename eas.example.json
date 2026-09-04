@@ -1,0 +1,84 @@
+{
+  "cli": {
+    "version": ">= 12.0.0",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      }
+    },
+    "preview": {
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_FIREBASE_API_KEY": "PASTE_FROM_YOUR_.ENV_HERE",
+        "EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN": "PASTE_FROM_YOUR_.ENV_HERE",
+        "EXPO_PUBLIC_FIREBASE_PROJECT_ID": "PASTE_FROM_YOUR_.ENV_HERE",
+        "EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET": "PASTE_FROM_YOUR_.ENV_HERE",
+        "EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID": "PASTE_FROM_YOUR_.ENV_HERE",
+        "EXPO_PUBLIC_FIREBASE_APP_ID": "PASTE_FROM_YOUR_.ENV_HERE"
+      }
+    },
+    "production": {
+      "autoIncrement": true,
+      "android": {
+        "buildType": "app-bundle"
+      }
+    }
+  }
+}
+
+{
+  "cli": {
+    "version": ">= 12.0.0",
+    "appVersionSource": "local"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      }
+    },
+    "preview": {
+      "distribution": "internal",
+      "channel": "preview",
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_FIREBASE_API_KEY": "PASTE_FROM_YOUR_.ENV_HERE",
+        "EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN": "PASTE_FROM_YOUR_.ENV_HERE",
+        "EXPO_PUBLIC_FIREBASE_PROJECT_ID": "PASTE_FROM_YOUR_.ENV_HERE",
+        "EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET": "PASTE_FROM_YOUR_.ENV_HERE",
+        "EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID": "PASTE_FROM_YOUR_.ENV_HERE",
+        "EXPO_PUBLIC_FIREBASE_APP_ID": "PASTE_FROM_YOUR_.ENV_HERE",
+        "EXPO_PUBLIC_ID_ENCRYPTION_KEY":"CREATE_YOUR_KEY_HERE"
+      }
+    },
+    "production": {
+      "channel": "production",
+      "android": {
+        "buildType": "app-bundle"
+      },
+      "autoIncrement": true,
+      "EXPO_PUBLIC_FIREBASE_API_KEY": "PASTE_FROM_YOUR_.ENV_HERE",
+        "EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN": "PASTE_FROM_YOUR_.ENV_HERE",
+        "EXPO_PUBLIC_FIREBASE_PROJECT_ID": "PASTE_FROM_YOUR_.ENV_HERE",
+        "EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET": "PASTE_FROM_YOUR_.ENV_HERE",
+        "EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID": "PASTE_FROM_YOUR_.ENV_HERE",
+        "EXPO_PUBLIC_FIREBASE_APP_ID": "PASTE_FROM_YOUR_.ENV_HERE",
+        "EXPO_PUBLIC_ID_ENCRYPTION_KEY":"CREATE_YOUR_KEY_HERE"
+    }
+  },
+  "submit": {
+    "production": {}
+  }
+}
