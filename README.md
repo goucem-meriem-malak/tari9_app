@@ -128,3 +128,7 @@ scripts/          seedProviders.ts - populate sample provider data for local tes
 - **No real payment gateway** — card payment is simulated (~1.4s fake "processing" delay, no network call); cash just confirms instantly. No commission/revenue model wired to any of it yet.
 - **National ID encryption key ships inside the app bundle** (documented in `src/utils/idCrypto.ts`) — protects data at rest in Firestore, not against someone reverse-engineering the installed app. A real fix means moving encryption server-side.
 - No automated tests yet. `pricing.ts` and the transition-table logic in `requests.ts` are pure functions with no Firestore/RN dependency — cheapest place to start.
+
+## License
+
+Proprietary — All Rights Reserved. See [`LICENSE`](./LICENSE). This repository is not open source.
